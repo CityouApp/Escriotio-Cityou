@@ -29,7 +29,7 @@ export function startDrag(event, task, sourceEl) {
   const offsetX = startX - rect.left
   const offsetY = startY - rect.top
 
-  let ghost = null, qx = null, qy = null
+  let ghost = null, qx = null, qy = null, rotTo = null, prevX = startX
   let overId = null, beforeId = null
   let rafId = 0, lastX = startX, lastY = startY
 
@@ -75,6 +75,7 @@ export function startDrag(event, task, sourceEl) {
     if (e.cancelable) e.preventDefault()
     lastX = e.clientX; lastY = e.clientY
     if (qx) { qx(e.clientX - offsetX); qy(e.clientY - offsetY) }
+    if (rotTo) { rotTo(Math.max(-9, Math.min(9, (e.clientX - prevX) * 0.6))); prevX = e.clientX }
     updateHover(lastX, lastY)
   }
   function onKey(e) {
@@ -98,7 +99,7 @@ export function startDrag(event, task, sourceEl) {
     dragState.overColumnId = null
     dragState.beforeTaskId = null
     activeSession = null
-    qx = qy = null
+    qx = qy = rotTo = null
   }
 
   function endDrag(commit) {
@@ -109,10 +110,7 @@ export function startDrag(event, task, sourceEl) {
     teardown()
     if (target && dropHandler) {
       dropHandler({ taskId: task.id, status: target, beforeTaskId: before, via: 'pointer' })
-      if (g) {
-        if (reducedMotion()) g.remove()
-        else gsap.to(g, { opacity: 0, scale: 0.9, duration: 0.16, ease: 'power1.out', onComplete: () => g.remove() })
-      }
+      if (g) landGhost(g, task.id)
     } else if (g) {
       const r = sourceEl.isConnected ? sourceEl.getBoundingClientRect() : rect
       if (reducedMotion()) g.remove()
@@ -145,7 +143,10 @@ export function startDrag(event, task, sourceEl) {
     gsap.set(ghost, { x: rect.left, y: rect.top, transformOrigin: '50% 50%' })
     qx = gsap.quickSetter(ghost, 'x', 'px')
     qy = gsap.quickSetter(ghost, 'y', 'px')
-    if (!reducedMotion()) gsap.to(ghost, { scale: 1.04, rotation: 2, duration: 0.18, ease: 'power2.out' })
+    if (!reducedMotion()) {
+      gsap.to(ghost, { scale: 1.05, duration: 0.25, ease: 'back.out(2)' })
+      rotTo = gsap.quickTo(ghost, 'rotation', { duration: 0.35, ease: 'power3.out' })
+    }
 
     try { handleEl.setPointerCapture(pointerId) } catch { /* noop */ }
     window.addEventListener('pointermove', onMove, { passive: false })
@@ -172,4 +173,23 @@ export function startDrag(event, task, sourceEl) {
   window.addEventListener('pointermove', onPreMove)
   window.addEventListener('pointerup', onPreEnd)
   window.addEventListener('pointercancel', onPreEnd)
+}
+
+// Pouso do "fantasma": voa até a posição final do cartão e some no lugar dele (FLIP)
+function landGhost(g, taskId) {
+  if (reducedMotion()) { g.remove(); return }
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const card = document.getElementById('task-card-' + taskId)
+    if (!card) { gsap.to(g, { autoAlpha: 0, scale: 0.9, duration: 0.18, onComplete: () => g.remove() }); return }
+    const r = card.getBoundingClientRect()
+    card.style.visibility = 'hidden'
+    gsap.to(g, {
+      x: r.left, y: r.top, rotation: 0, scale: 1, duration: 0.42, ease: 'expo.out',
+      onComplete: () => {
+        card.style.visibility = ''
+        g.remove()
+        gsap.fromTo(card, { scale: 1.03 }, { scale: 1, duration: 0.45, ease: 'elastic.out(1, 0.5)', clearProps: 'transform' })
+      }
+    })
+  }))
 }

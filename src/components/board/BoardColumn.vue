@@ -3,6 +3,7 @@
     ref="rootEl"
     class="kanban-column"
     :class="[column.themeClass, { 'drag-over': isOver }]"
+    @pointermove="onSpot"
     :aria-label="`${column.title} — ${column.subtitle}, ${tasks.length} tarefas`"
   >
     <!-- Raios e descargas de plasma mais vivos na coluna "A Forja" -->
@@ -49,7 +50,7 @@
             @change="toggleAll"
           />
         </label>
-        <span class="column-count" aria-hidden="true">{{ tasks.length }}</span>
+        <span ref="countEl" class="column-count" aria-hidden="true">{{ displayCount }}</span>
       </div>
     </header>
 
@@ -67,25 +68,55 @@
         />
       </template>
       <div v-if="showIndicator && dropIndex === tasks.length" class="drop-indicator" aria-hidden="true"></div>
-      <div v-if="!tasks.length" class="column-empty">
-        <span class="empty-glyph" aria-hidden="true">⚒</span>
-        <p>Nenhum pergaminho aqui.<br/>Arraste uma tarefa ou crie uma nova.</p>
+      <div v-if="!tasks.length && !loading" class="column-empty">
+        <svg class="empty-glyph" viewBox="0 0 48 48" aria-hidden="true">
+          <rect x="10" y="8" width="28" height="32" rx="4" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4" />
+          <path d="M24 18v12M18 24h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+        </svg>
+        <p>{{ emptyText }}</p>
+        <button type="button" class="empty-cta" @click="$emit('create-here', column.id)">Criar tarefa aqui</button>
       </div>
+      <template v-if="loading">
+        <div v-for="n in 2" :key="'sk' + n" class="skeleton-card" aria-hidden="true">
+          <span class="sk-line w40"></span><span class="sk-line w90"></span><span class="sk-line w70"></span>
+          <span class="sk-foot"><span class="sk-dot"></span><span class="sk-dot"></span></span>
+        </div>
+      </template>
     </div>
   </section>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import gsap from 'gsap'
+import { reducedMotion } from '../../utils/motion'
 import TaskCard from './TaskCard.vue'
 import { useBoard, COLUMN_ORDER } from '../../composables/useBoard'
 import { dragState, registerDropColumn } from '../../composables/useDragDrop'
 
 const props = defineProps({
   column: { type: Object, required: true },
-  tasks: { type: Array, default: () => [] }
+  tasks: { type: Array, default: () => [] },
+  loading: { type: Boolean, default: false }
 })
-const emit = defineEmits(['drop-task', 'edit-task', 'delete-task', 'open-task'])
+const emit = defineEmits(['drop-task', 'edit-task', 'delete-task', 'open-task', 'create-here'])
+
+const EMPTY = {
+  todo: 'Nada na fila. Anote a próxima missão do time.',
+  inprogress: 'A forja está fria. Puxe uma tarefa da fila para cá.',
+  done: 'Nenhuma vitória ainda. Arraste para cá o que terminar.'
+}
+const emptyText = computed(() => EMPTY[props.column.id] || 'Arraste uma tarefa ou crie uma nova.')
+
+// Contador animado: rola até o novo número e dá um "pulso"
+const countEl = ref(null)
+const displayCount = ref(props.tasks.length)
+const counter = { v: props.tasks.length }
+watch(() => props.tasks.length, (n, old) => {
+  if (reducedMotion()) { displayCount.value = n; return }
+  gsap.to(counter, { v: n, duration: 0.5, ease: 'power2.out', overwrite: true, onUpdate: () => { displayCount.value = Math.round(counter.v) } })
+  if (countEl.value) gsap.fromTo(countEl.value, { scale: n > old ? 1.45 : 0.7 }, { scale: 1, duration: 0.6, ease: 'elastic.out(1, 0.4)', overwrite: 'auto' })
+})
 
 const { selectedIds, toggleSelectMany } = useBoard()
 const rootEl = ref(null)
@@ -115,6 +146,13 @@ function onKeyMove(task, index, dir) {
   } else if (dir === 'down' && index < props.tasks.length - 1) {
     emit('drop-task', { taskId: task.id, status: props.column.id, beforeTaskId: props.tasks[index + 2]?.id ?? null, via: 'keyboard' })
   }
+}
+
+function onSpot(e) {
+  if (e.pointerType !== 'mouse' || !rootEl.value) return
+  const r = rootEl.value.getBoundingClientRect()
+  rootEl.value.style.setProperty('--spot-x', (e.clientX - r.left) + 'px')
+  rootEl.value.style.setProperty('--spot-y', (e.clientY - r.top) + 'px')
 }
 
 onMounted(() => {

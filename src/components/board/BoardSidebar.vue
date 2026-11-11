@@ -1,8 +1,8 @@
 <template>
   <aside class="sidebar" aria-label="Navegação do estúdio">
     <div class="studio-selector">
-      <span>NÓS — Estúdio</span>
-      <span aria-hidden="true">▾</span>
+      <span class="studio-mark" aria-hidden="true"><InsigniaGlyph id="folha" :animated="false" /></span>
+      <span class="studio-name">Escritório Cityou</span>
     </div>
 
     <nav class="nav-list" aria-label="Seções">
@@ -28,39 +28,43 @@
       </button>
     </nav>
 
-    <div class="sidebar-section-label">VISÕES SALVAS</div>
+    <div class="sidebar-section-label">Visões salvas</div>
 
     <!-- Placa Metálica 1: Visões Salvas + Entalhe de Runas (igual à referência) -->
     <div class="metal-plate plate-views-runes">
       <div class="saved-views-list" role="group" aria-label="Visões salvas">
         <button class="saved-view-btn" :class="{ active: savedView === 'all' }" :aria-pressed="savedView === 'all'" @click="$emit('update:saved-view', 'all')">
-          <span aria-hidden="true">🍀</span> Todas
+          <svg class="sv-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14M3 10h14M3 16h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Todas
         </button>
         <button class="saved-view-btn" :class="{ active: savedView === 'mine' }" :aria-pressed="savedView === 'mine'" @click="$emit('update:saved-view', 'mine')">
-          <span aria-hidden="true">@</span> Minhas tarefas
+          <svg class="sv-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="7" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 17c.8-3.2 3.2-5 6-5s5.2 1.8 6 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Minhas tarefas
         </button>
         <button class="saved-view-btn" :class="{ active: savedView === 'urgent' }" :aria-pressed="savedView === 'urgent'" @click="$emit('update:saved-view', 'urgent')">
-          <span aria-hidden="true">⚡</span> Urgentes
+          <svg class="sv-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M11 2L4 11.5h5L8 18l7-9.5h-5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg> Urgentes
         </button>
       </div>
 
-      <div class="runes-carving" aria-hidden="true">
-        <svg viewBox="0 0 110 92" fill="none">
-          <path d="M22 10 H88 M22 10 V22 M88 10 V22" stroke="#0c1017" stroke-width="3.5" stroke-linecap="round"/>
-          <path d="M23 11 H87" stroke="#4c5a6e" stroke-width="1.2"/>
-          <g stroke="#0b0e14" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M45 24 C63 24, 63 38, 45 38"/>
-            <circle cx="55" cy="50" r="8"/>
-            <path d="M43 66 C55 58, 67 66, 55 76 C44 82, 66 84, 61 70"/>
-          </g>
-          <g stroke="#55647a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M45 24 C63 24, 63 38, 45 38"/>
-            <circle cx="55" cy="50" r="8"/>
-            <path d="M43 66 C55 58, 67 66, 55 76 C44 82, 66 84, 61 70"/>
-          </g>
-          <path d="M22 84 H88 M22 84 V73 M88 84 V73" stroke="#0c1017" stroke-width="3.5" stroke-linecap="round"/>
-        </svg>
       </div>
+
+    <div class="sidebar-section-label">Time e insígnias</div>
+    <div class="metal-plate team-plate" role="list" aria-label="Insígnias do time">
+      <button
+        v-for="p in partners"
+        :key="p.initials"
+        type="button"
+        role="listitem"
+        class="team-row"
+        :style="{ '--m-color': memberColor(p.initials) }"
+        :aria-label="`Trocar a insígnia de ${tc(p.name)} (atual: ${insigniaOf(p.initials).name})`"
+        @click="openPicker(p.initials, $event.currentTarget)"
+      >
+        <MemberAvatar :initials="p.initials" size="sm" :interactive="false" :show-initials="false" />
+        <span class="team-text">
+          <span class="team-name">{{ tc(p.name).split(' ')[0] === 'Alexandre' ? 'Xande' : tc(p.name) }}</span>
+          <span class="team-ins">{{ insigniaOf(p.initials).name }}</span>
+        </span>
+        <svg class="team-edit" viewBox="0 0 20 20" aria-hidden="true"><path d="M13.6 3.6l2.8 2.8L7 15.8l-3.6.8.8-3.6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>
+      </button>
     </div>
 
     <!-- Placa Metálica 2: Emblemas Compactos TVCC, Cheerathletics e Brasil -->
@@ -115,12 +119,12 @@
         </svg>
         <div class="forge-ring-text">
           <span class="forge-percent">{{ displayPercent }}%</span>
-          <span class="forge-label">FORJADO</span>
+          <span class="forge-label">forjado</span>
         </div>
       </div>
     </div>
 
-    <button class="sidebar-reset" @click="$emit('reset')">↺ Restaurar exemplo</button>
+    <button class="sidebar-reset" @click="$emit('reset')">Restaurar exemplo</button>
   </aside>
 </template>
 
@@ -128,6 +132,12 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import gsap from 'gsap'
 import { reducedMotion } from '../../utils/motion'
+import InsigniaGlyph from '../insignia/InsigniaGlyph.vue'
+import MemberAvatar from '../insignia/MemberAvatar.vue'
+import { partners } from '../../composables/useBoard'
+import { insigniaOf, memberColor, openPicker } from '../../composables/useInsignias'
+
+const tc = (s) => s.toLowerCase().replace(/(?<=^|[\s'])\p{L}/gu, c => c.toUpperCase())
 
 const props = defineProps({
   totalCount: { type: Number, default: 0 },

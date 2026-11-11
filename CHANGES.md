@@ -1,3 +1,22 @@
+# Escritório Cityou — v4 (insígnias + links vivos + acabamento premium)
+
+## Novidades
+- **Seletor de insígnias** (9 opções, SVG desenhado à mão, cada uma com cor e animação própria). Abre pelo botão "Insígnia" no medalhão, pelo bloco "Time e insígnias" da barra lateral, ou pelo popover do sócio. Salvo em `localStorage` (`cityou_insignias_v1`).
+  1. Dedo do Meio · 2. Pedaço de Coco · 3. Folha da Vila · 4. Mangekyō Sharingan · 5. Cardinal TVCC · 6. Rasengan · 7. Shuriken · 8. Nuvem Rubra · 9. Pirâmide de Stunt
+- **Insígnias em todo lugar**: medalhões, barra lateral, avatares dos cartões, escolha de responsáveis no modal e gaveta de detalhes.
+- **Responsáveis vivos nos cartões** (`AssigneeStack` + `MemberAvatar`): anel de presença girando/respirando na cor do sócio, hover com elevação + inclinação 3D (gsap.quickTo) + tooltip, clique abre popover (insígnia, tarefas / na forja / concluídas, remover/atribuir, filtrar, trocar insígnia), botão "+" para alternar quem trabalha na tarefa, fio de energia tracejado com partículas de chakra entre os responsáveis, entrada/saída com GSAP.
+- **Acabamento premium** (`src/assets/premium.css`): tokens de tipo/espaço/raio/sombra/easing, superfícies de vidro com grão, botão "Nova tarefa" magnético (diretiva `v-magnetic`) com brilho, estados de pressão, holofote que segue o cursor nas colunas, contadores animados, esqueletos de carregamento, estados vazios com ação "Criar tarefa aqui", toasts com tom (sucesso/info), fantasma de arraste que inclina com a velocidade e pousa no lugar final (FLIP).
+- Tipografia: Cinzel (títulos) + Chakra Petch (rótulos) + Manrope (texto). Emojis usados como ícones trocados por SVG.
+
+## Skills aplicadas
+- **frontend-design (Anthropic)**: sem rótulos em caixa alta forçada, sem "→"/emoji como ícone, uma sequência de entrada orquestrada só, movimento que responde à ação.
+- **ui-ux-pro-max**: par tipográfico gaming (Chakra Petch), alvos de toque ≥ 44px nos menus, hover 150–300 ms, saída mais rápida que entrada, linear para giros, stagger em grade, sem emoji como ícone.
+- **impeccable (audit/polish)**: detector rodado na página; corrigidos texto funcional < 11px, gradiente em texto do título e pontos pulsando infinitamente; movimento reduzido agora preserva feedback (transições curtas) em vez de zerar tudo. Brilhos coloridos mantidos de propósito (identidade anime/chakra pedida pelo time).
+- **gsap-skills**: transform/opacity/autoAlpha em vez de propriedades de layout, `gsap.quickTo` para inclinação e magnetismo, `gsap.matchMedia` para prefers-reduced-motion, limpeza em `onBeforeUnmount`.
+
+
+---
+
 # Alterações no quadro (board-final)
 
 Cópia de `/workspace/qwen/output_v2/`. A pasta original não foi alterada.

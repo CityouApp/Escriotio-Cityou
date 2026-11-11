@@ -759,6 +759,6 @@ body.is-dragging .kanban-grid { scroll-snap-type: none; }
 
 /* ============ MOVIMENTO REDUZIDO ============ */
 @media (prefers-reduced-motion: reduce) {
-  .board-app-layout *, .modal-backdrop *, .drawer-scrim *, .board-toast * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .board-app-layout *, .modal-backdrop *, .drawer-scrim *, .board-toast * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .08s !important; }
   .board-app-layout::after { animation: none; }
 }

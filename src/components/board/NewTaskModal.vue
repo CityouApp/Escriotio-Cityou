@@ -82,12 +82,13 @@
                 :key="p.id"
                 type="button"
                 class="assignee-option"
+                :style="{ '--m-color': memberColor(p.initials) }"
                 :class="{ active: draft.assignees.includes(p.initials) }"
                 :aria-pressed="draft.assignees.includes(p.initials)"
                 @click="toggleAssignee(p.initials)"
               >
-                <span class="avatar-badge" :class="'avatar-' + p.initials" aria-hidden="true">{{ p.initials }}</span>
-                {{ p.name }} <span v-if="p.isYou" class="you-tag">(você)</span>
+                <MemberAvatar :initials="p.initials" size="sm" :interactive="false" />
+                <span class="ao-text"><span class="ao-name">{{ tc(p.name) }} <span v-if="p.isYou" class="you-tag">(você)</span></span><span class="ao-ins">{{ insigniaOf(p.initials).name }}</span></span>
               </button>
             </div>
           </div>
@@ -96,7 +97,7 @@
             <label class="switch-row">
               <input v-model="draft.urgent" type="checkbox" class="switch-input" />
               <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-              <span>🚩 Marcar como urgente</span>
+              <span>Marcar como urgente</span>
             </label>
           </div>
 
@@ -120,7 +121,7 @@
             </template>
             <template v-else>
               <button type="button" class="btn-ghost" @click="requestClose">Cancelar</button>
-              <button type="submit" class="btn-primary">{{ isEdit ? 'Salvar alterações' : '⚒ Forjar tarefa' }}</button>
+              <button type="submit" class="btn-primary">{{ isEdit ? 'Salvar alterações' : 'Forjar tarefa' }}</button>
             </template>
           </footer>
         </form>
@@ -134,6 +135,9 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'v
 import gsap from 'gsap'
 import { useBoard, TAG_PRESETS, isoAddDays, normalizeText, CURRENT_USER } from '../../composables/useBoard'
 import { reducedMotion } from '../../utils/motion'
+import MemberAvatar from '../insignia/MemberAvatar.vue'
+import { insigniaOf, memberColor } from '../../composables/useInsignias'
+const tc = (s) => s.toLowerCase().replace(/(?<=^|[\s'])\p{L}/gu, c => c.toUpperCase())
 
 const props = defineProps({
   initialTask: { type: Object, default: null },

@@ -20,7 +20,7 @@
 
           <div class="drawer-tags">
             <span v-for="tag in task.tags" :key="tag" class="tag-pill" :class="tagClass(tag)">{{ tag }}</span>
-            <span v-if="task.urgent" class="tag-pill tag-urgent-pill">🚩 Urgente</span>
+            <span v-if="task.urgent" class="tag-pill tag-urgent-pill">Urgente</span>
           </div>
 
           <div class="drawer-meta-grid">
@@ -41,7 +41,7 @@
               <span class="field-label">Responsáveis</span>
               <div class="drawer-assignees">
                 <span v-for="ini in task.assignees" :key="ini" class="drawer-assignee">
-                  <span class="avatar-badge" :class="'avatar-' + ini" aria-hidden="true">{{ ini }}</span>
+                  <MemberAvatar :initials="ini" size="sm" :interactive="false" />
                   {{ partnerByInitials[ini]?.name || ini }}
                 </span>
                 <span v-if="!task.assignees.length" class="drawer-value">Ninguém atribuído</span>
@@ -65,7 +65,7 @@
             </label>
             <p v-if="!task.checklist.length" class="checklist-empty">Esta tarefa não tem itens de checklist.</p>
             <button v-if="progressPct === 100 && task.checklist.length && task.status !== 'done'" class="btn-primary drawer-complete" @click="$emit('move', 'done')">
-              ✓ Concluir tarefa
+              Concluir tarefa
             </button>
           </div>
         </div>
@@ -84,6 +84,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import gsap from 'gsap'
 import { useBoard, dueLabel, isOverdue, tagClass } from '../../composables/useBoard'
 import { reducedMotion } from '../../utils/motion'
+import MemberAvatar from '../insignia/MemberAvatar.vue'
 
 const props = defineProps({
   task: { type: Object, required: true },
