@@ -5,7 +5,8 @@
     :data-task-id="task.id"
     role="listitem"
     class="scroll-card-wrapper"
-    :class="{ urgent: task.urgent, 'is-done': columnId === 'done', expanded, selected: isSelected }"
+    :class="{ urgent: task.urgent, 'is-done': columnId === 'done', expanded, selected: isSelected, 'has-baton': !!task.handoff, 'baton-mine': task.handoff?.holder === CURRENT_USER }"
+    :data-flip-id="'task-' + task.id"
   >
     <div v-if="columnId === 'inprogress'" class="electric-aura-fx" aria-hidden="true"></div>
     <span v-if="task.urgent" class="urgent-ribbon" aria-hidden="true">!</span>
@@ -33,9 +34,60 @@
         <div class="card-tags">
           <span v-for="tag in task.tags" :key="tag" class="tag-pill" :class="tagClass(tag)">{{ tag }}</span>
         </div>
-        <div class="card-quick-actions">
+ <div class="card-quick-actions">
+          <button
+            type="button"
+            class="btn-card-icon baton-trigger"
+            :class="{ active: !!task.handoff }"
+            :aria-expanded="batonOpen"
+            :aria-label="task.handoff ? `Bastão com ${initialsName(task.handoff.holder)}. Passar o bastão de '${task.title}'` : `Passar o bastão de '${task.title}'`"
+            :title="task.handoff ? `Bastão com ${initialsName(task.handoff.holder)}` : 'Passar o bastão'"
+            @click.stop="toggleBaton"
+            @pointerdown.stop
+          ><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 1.5L3.5 9h4l-1 5.5 6-7.5h-4z" fill="currentColor" /></svg></button>
           <button class="btn-card-icon" :aria-label="`Editar '${task.title}'`" @click.stop="$emit('edit')">✎</button>
           <button class="btn-card-icon danger" :aria-label="`Excluir '${task.title}'`" @click.stop="$emit('delete')">×</button>
+        </div>
+      </div>
+
+      <div v-if="task.handoff" class="baton-seal" :class="{ mine: task.handoff.holder === CURRENT_USER }" :style="{ '--b-color': memberColor(task.handoff.holder) }">
+        <span class="baton-seal-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M9.5 1.5L3.5 9h4l-1 5.5 6-7.5h-4z" fill="currentColor" /></svg></span>
+        <span class="baton-seal-text">
+          <strong>{{ task.handoff.holder === CURRENT_USER ? 'Bastão com você' : 'Bastão com ' + initialsName(task.handoff.holder) }}</strong>
+          <span class="baton-seal-from">de {{ initialsName(task.handoff.from) }} · {{ relTime(task.handoff.updatedAt) }}</span>
+        </span>
+        <span v-if="task.handoff.note" class="baton-seal-note">“{{ task.handoff.note }}”</span>
+      </div>
+
+      <div v-if="batonOpen" class="baton-editor" role="group" :aria-label="`Passar o bastão de '${task.title}'`" @click.stop @pointerdown.stop>
+        <span class="baton-editor-label">Passar o bastão para</span>
+        <div class="baton-editor-people">
+          <button
+            v-for="p in partners"
+            :key="p.initials"
+            type="button"
+            class="baton-person"
+            :class="{ active: batonTarget === p.initials }"
+            :aria-pressed="batonTarget === p.initials"
+            :style="{ '--b-color': memberColor(p.initials) }"
+            @click="batonTarget = p.initials"
+          >{{ initialsName(p.initials) }}</button>
+        </div>
+        <input
+          ref="batonInputEl"
+          v-model="batonNote"
+          type="text"
+          maxlength="160"
+          class="baton-note-input"
+          placeholder="Recado para quem recebe (opcional)"
+          aria-label="Recado da passagem de bastão"
+          @keydown.enter.prevent="confirmBaton"
+          @keydown.esc.prevent="batonOpen = false"
+        />
+        <div class="baton-editor-actions">
+          <button v-if="task.handoff" type="button" class="baton-btn ghost" @click="clearBaton">Recolher bastão</button>
+          <button type="button" class="baton-btn ghost" @click="batonOpen = false">Cancelar</button>
+          <button type="button" class="baton-btn primary" @click="confirmBaton">Passar bastão</button>
         </div>
       </div>
 
@@ -83,8 +135,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useBoard, dueLabel, isOverdue, tagClass } from '../../composables/useBoard'
+import { ref, computed, nextTick } from 'vue'
+import { useBoard, dueLabel, isOverdue, tagClass, CURRENT_USER, initialsName } from '../../composables/useBoard'
+import { memberColor } from '../../composables/useInsignias'
+import { showToast } from '../../composables/useToast'
 import { startDrag } from '../../composables/useDragDrop'
 import AssigneeStack from '../insignia/AssigneeStack.vue'
 
@@ -95,7 +149,39 @@ const props = defineProps({
 })
 const emit = defineEmits(['edit', 'delete', 'open', 'keymove'])
 
-const { selectedIds, toggleSelect } = useBoard()
+const { selectedIds, toggleSelect, passBaton, partners } = useBoard()
+const batonOpen = ref(false)
+const batonTarget = ref('LC')
+const batonNote = ref('')
+const batonInputEl = ref(null)
+
+function toggleBaton() {
+  batonOpen.value = !batonOpen.value
+  if (batonOpen.value) {
+    const h = props.task.handoff
+    batonTarget.value = h ? (h.holder === CURRENT_USER ? 'LC' : h.holder) : (props.task.assignees.find(a => a !== CURRENT_USER) || 'LC')
+    batonNote.value = ''
+    nextTick(() => batonInputEl.value?.focus())
+  }
+}
+function confirmBaton() {
+  passBaton(props.task.id, batonTarget.value, batonNote.value)
+  batonOpen.value = false
+  showToast(batonTarget.value === CURRENT_USER ? 'Bastão ficou com você' : `Bastão passado para ${initialsName(batonTarget.value)}`, { tone: 'success' })
+}
+function clearBaton() {
+  passBaton(props.task.id, null)
+  batonOpen.value = false
+  showToast('Bastão recolhido')
+}
+function relTime(ts) {
+  const m = Math.max(0, Math.round((Date.now() - ts) / 60000))
+  if (m < 1) return 'agora'
+  if (m < 60) return `há ${m} min`
+  const h = Math.round(m / 60)
+  if (h < 24) return `há ${h} h`
+  return `há ${Math.round(h / 24)} d`
+}
 const rootEl = ref(null)
 const handleEl = ref(null)
 const expanded = ref(false)

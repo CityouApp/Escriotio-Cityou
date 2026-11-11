@@ -1,4 +1,5 @@
-import { ref, computed, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
+import { memberInsignias, setInsignia } from './useInsignias'
 
 const STORAGE_KEY = 'nos_estudio_kanban_v3'
 const LEGACY_KEY = 'nos_estudio_kanban_v1'
@@ -65,6 +66,19 @@ const INITIAL_TASKS = [
     urgent: false, dueDate: '', comments: 0, assignees: ['LC'] }
 ]
 
+const PARTNER_INITIALS = ['LF', 'LC', 'AX']
+
+function normalizeHandoff(h) {
+  if (!h || typeof h !== 'object' || !PARTNER_INITIALS.includes(h.holder)) return null
+  return {
+    holder: h.holder,
+    from: PARTNER_INITIALS.includes(h.from) ? h.from : CURRENT_USER,
+    to: h.holder,
+    note: String(h.note || '').slice(0, 160),
+    updatedAt: Number.isFinite(h.updatedAt) ? h.updatedAt : Date.now()
+  }
+}
+
 function normalizeTask(raw) {
   if (!raw || typeof raw !== 'object' || !raw.title) return null
   return {
@@ -77,6 +91,7 @@ function normalizeTask(raw) {
     dueDate: typeof raw.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.dueDate) ? raw.dueDate : '',
     comments: Number.isFinite(raw.comments) ? raw.comments : 0,
     assignees: Array.isArray(raw.assignees) ? raw.assignees.filter(a => typeof a === 'string') : [],
+    handoff: normalizeHandoff(raw.handoff),
     createdAt: Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now()
   }
 }
@@ -115,6 +130,145 @@ const partners = ref([
   { id: 'alexandre', name: "ALEXANDRE 'XANDE'", initials: 'AX', isYou: false, online: false, emblem: 'star', statusText: 'Offline — há 1 h' }
 ])
 
+// ============ COLABORAÇÃO À DISTÂNCIA (offline, localStorage) ============
+const COLLAB_KEY = 'cityou_collab_v1'
+const VIEW_KEY = 'cityou_view_v1'
+export const DEFAULT_TZ = 'America/Sao_Paulo'
+export const TIMEZONE_OPTIONS = [
+  { id: 'America/Sao_Paulo', label: 'Brasília / São Paulo / Rio' },
+  { id: 'America/Manaus', label: 'Manaus / Cuiabá' },
+  { id: 'America/Noronha', label: 'Fernando de Noronha' },
+  { id: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires' },
+  { id: 'America/Santiago', label: 'Santiago' },
+  { id: 'America/Bogota', label: 'Bogotá / Lima' },
+  { id: 'America/Mexico_City', label: 'Cidade do México' },
+  { id: 'America/New_York', label: 'Nova York / Miami' },
+  { id: 'America/Chicago', label: 'Chicago / Dallas' },
+  { id: 'America/Denver', label: 'Denver' },
+  { id: 'America/Los_Angeles', label: 'Los Angeles / São Francisco' },
+  { id: 'Europe/Lisbon', label: 'Lisboa / Porto' },
+  { id: 'Europe/London', label: 'Londres' },
+  { id: 'Europe/Madrid', label: 'Madri / Paris / Roma / Berlim' },
+  { id: 'Africa/Luanda', label: 'Luanda' },
+  { id: 'Asia/Dubai', label: 'Dubai' },
+  { id: 'Asia/Tokyo', label: 'Tóquio' },
+  { id: 'Australia/Sydney', label: 'Sydney' }
+]
+function validTz(tz) {
+  if (typeof tz !== 'string' || !tz) return false
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false }
+}
+function defaultCollab(initials) {
+  return { city: '', timezone: DEFAULT_TZ, workStart: 9, workEnd: 18, checkin: null }
+}
+function clampHour(n, d) { n = Number(n); return Number.isFinite(n) ? Math.min(24, Math.max(0, Math.round(n))) : d }
+function normalizeCollabPartner(raw, initials) {
+  const base = defaultCollab(initials)
+  if (!raw || typeof raw !== 'object') return base
+  const c = raw.checkin
+  return {
+    city: String(raw.city || '').slice(0, 60),
+    timezone: validTz(raw.timezone) ? raw.timezone : DEFAULT_TZ,
+    workStart: clampHour(raw.workStart, 9),
+    workEnd: clampHour(raw.workEnd, 18),
+    checkin: c && typeof c === 'object' && Number.isFinite(c.updatedAt)
+      ? { focus: String(c.focus || '').slice(0, 160), city: String(c.city || '').slice(0, 60), blockers: String(c.blockers || '').slice(0, 160), updatedAt: c.updatedAt }
+      : null
+  }
+}
+function normalizeDecision(d) {
+  if (!d || typeof d !== 'object' || !String(d.title || '').trim()) return null
+  return {
+    id: typeof d.id === 'string' && d.id ? d.id : uid(),
+    title: String(d.title).trim().slice(0, 140),
+    context: String(d.context || '').trim().slice(0, 280),
+    author: PARTNER_INITIALS.includes(d.author) ? d.author : CURRENT_USER,
+    taskId: typeof d.taskId === 'string' ? d.taskId : null,
+    createdAt: Number.isFinite(d.createdAt) ? d.createdAt : Date.now()
+  }
+}
+function normalizeActivity(a) {
+  if (!a || typeof a !== 'object' || typeof a.text !== 'string') return null
+  return {
+    id: typeof a.id === 'string' ? a.id : uid(),
+    type: String(a.type || 'edit'),
+    actor: PARTNER_INITIALS.includes(a.actor) ? a.actor : CURRENT_USER,
+    text: a.text.slice(0, 220),
+    taskId: typeof a.taskId === 'string' ? a.taskId : null,
+    createdAt: Number.isFinite(a.createdAt) ? a.createdAt : Date.now()
+  }
+}
+function normalizeCollab(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {}
+  const team = {}
+  for (const ini of PARTNER_INITIALS) team[ini] = normalizeCollabPartner(src.team?.[ini], ini)
+  return {
+    team,
+    decisions: Array.isArray(src.decisions) ? src.decisions.map(normalizeDecision).filter(Boolean).slice(0, 200) : [],
+    activities: Array.isArray(src.activities) ? src.activities.map(normalizeActivity).filter(Boolean).slice(0, 150) : []
+  }
+}
+function loadCollab() {
+  try { return normalizeCollab(JSON.parse(localStorage.getItem(COLLAB_KEY) || 'null')) }
+  catch { return normalizeCollab(null) }
+}
+
+const collab = reactive(loadCollab())
+const activeTab = ref('board') // 'board' | 'team' | 'activity'
+const boardSubView = ref((() => { try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'kanban' } catch { return 'kanban' } })())
+
+let collabTimer = null
+watch(collab, (val) => {
+  clearTimeout(collabTimer)
+  collabTimer = setTimeout(() => {
+    try { localStorage.setItem(COLLAB_KEY, JSON.stringify(val)) }
+    catch (e) { console.warn('[useBoard] Falha ao persistir colaboração:', e) }
+  }, 150)
+}, { deep: true })
+watch(boardSubView, (v) => { try { localStorage.setItem(VIEW_KEY, v) } catch { /* modo privado */ } })
+
+function initialsName(ini) {
+  return { LF: 'Luiz Felipe', LC: 'Luiz Carlos', AX: 'Xande' }[ini] || ini
+}
+function logActivity(type, text, taskId = null, actor = CURRENT_USER) {
+  collab.activities.unshift({ id: uid(), type, actor, text: String(text).slice(0, 220), taskId, createdAt: Date.now() })
+  if (collab.activities.length > 150) collab.activities.length = 150
+}
+
+export function formatTimeInZone(tz, date = new Date()) {
+  try { return new Intl.DateTimeFormat('pt-BR', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(date) }
+  catch { return '--:--' }
+}
+export function hourInZone(tz, date = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(date)
+    const h = Number(parts.find(p => p.type === 'hour')?.value ?? 0) % 24
+    const m = Number(parts.find(p => p.type === 'minute')?.value ?? 0)
+    return h + m / 60
+  } catch { return date.getHours() + date.getMinutes() / 60 }
+}
+// Diferença (em horas) entre o fuso e UTC no instante dado
+export function tzOffsetHours(tz, date = new Date()) {
+  const utc = date.getUTCHours() + date.getUTCMinutes() / 60
+  let d = hourInZone(tz, date) - utc
+  if (d > 14) d -= 24
+  if (d < -12) d += 24
+  return Math.round(d * 4) / 4
+}
+export function isWorking(member, localHour) {
+  const s = member.workStart, e = member.workEnd
+  const h = ((localHour % 24) + 24) % 24
+  return s <= e ? (h >= s && h < e) : (h >= s || h < e)
+}
+// Horas UTC (0..23) em que todos estão no expediente
+export function overlapUtcHours(team, date = new Date()) {
+  const out = []
+  for (let u = 0; u < 24; u++) {
+    if (PARTNER_INITIALS.every(ini => isWorking(team[ini], u + tzOffsetHours(team[ini].timezone, date)))) out.push(u)
+  }
+  return out
+}
+
 const columns = [
   { id: 'todo', title: 'PORTAL DOS PREPARATIVOS', subtitle: 'A fazer', themeClass: 'col-todo' },
   { id: 'inprogress', title: 'A FORJA / ATIVAÇÃO', subtitle: 'Em andamento', themeClass: 'col-inprogress' },
@@ -136,17 +290,19 @@ export function useBoard() {
     return Math.round((tasks.value.filter(t => t.status === 'done').length / tasks.value.length) * 100)
   })
   const onlineCount = computed(() => partners.value.filter(p => p.online).length)
+  const batonWithMeCount = computed(() => tasks.value.filter(t => t.status !== 'done' && t.handoff?.holder === CURRENT_USER).length)
   const hasActiveFilters = computed(() => savedView.value !== 'all' || !!selectedMember.value || !!searchQuery.value.trim())
 
   function filteredTasksByColumn(colId) {
     const q = normalizeText(searchQuery.value.trim())
     let list = tasks.value.filter(t => {
-      if (t.status !== colId) return false
+      if (colId && t.status !== colId) return false
       if (savedView.value === 'mine' && !t.assignees.includes(CURRENT_USER)) return false
       if (savedView.value === 'urgent' && !t.urgent) return false
-      if (selectedMember.value && !t.assignees.includes(selectedMember.value)) return false
+      if (savedView.value === 'baton' && t.handoff?.holder !== CURRENT_USER) return false
+      if (selectedMember.value && !t.assignees.includes(selectedMember.value) && t.handoff?.holder !== selectedMember.value) return false
       if (q) {
-        const hay = normalizeText([t.title, ...t.tags, ...t.checklist.map(i => i.text)].join(' '))
+        const hay = normalizeText([t.title, ...t.tags, ...t.checklist.map(i => i.text), t.handoff?.note || ''].join(' '))
         if (!hay.includes(q)) return false
       }
       return true
@@ -167,7 +323,7 @@ export function useBoard() {
     tasks.value.splice(idx, 1)
     const completed = newStatus === 'done' && fromStatus !== 'done'
     task.status = newStatus
-    if (completed) task.checklist.forEach(i => (i.done = true))
+    if (completed) { task.checklist.forEach(i => (i.done = true)); task.handoff = null }
     let insertAt
     if (beforeTaskId && beforeTaskId !== taskId) {
       const bi = tasks.value.findIndex(t => t.id === beforeTaskId)
@@ -178,6 +334,10 @@ export function useBoard() {
       insertAt = last ? tasks.value.indexOf(last) + 1 : tasks.value.length
     }
     tasks.value.splice(insertAt, 0, task)
+    if (fromStatus !== newStatus) {
+      const col = columns.find(c => c.id === newStatus)?.subtitle || newStatus
+      logActivity(completed ? 'done' : 'move', `${completed ? 'concluiu' : 'moveu'} “${task.title}”${completed ? '' : ' para ' + col}`, task.id)
+    }
     return { task, fromStatus, completed }
   }
 
@@ -188,9 +348,12 @@ export function useBoard() {
     if (idx >= 0) {
       clean.comments = tasks.value[idx].comments
       clean.createdAt = tasks.value[idx].createdAt
+      if (payload.handoff === undefined) clean.handoff = tasks.value[idx].handoff
       tasks.value[idx] = clean
+      logActivity('edit', `editou “${clean.title}”`, clean.id)
     } else {
       tasks.value.unshift(clean)
+      logActivity('create', `criou “${clean.title}”`, clean.id)
     }
     return clean
   }
@@ -254,7 +417,89 @@ export function useBoard() {
     sortMode.value = 'manual'
   }
 
+  function passBaton(taskId, toInitials, note = '', fromInitials = CURRENT_USER) {
+    const task = tasks.value.find(t => t.id === taskId)
+    if (!task) return null
+    if (!toInitials) {
+      task.handoff = null
+      logActivity('handoff', `recolheu o bastão de “${task.title}”`, task.id, fromInitials)
+      return task
+    }
+    if (!PARTNER_INITIALS.includes(toInitials)) return null
+    task.handoff = normalizeHandoff({ holder: toInitials, from: fromInitials, note: String(note || '').trim(), updatedAt: Date.now() })
+    if (!task.assignees.includes(toInitials)) task.assignees.push(toInitials)
+    const n = task.handoff.note
+    logActivity('handoff', `passou o bastão de “${task.title}” para ${initialsName(toInitials)}${n ? ` — “${n}”` : ''}`, task.id, fromInitials)
+    return task
+  }
+
+  function updateMemberSettings(initials, patch) {
+    const m = collab.team[initials]
+    if (!m) return false
+    if (patch.city !== undefined) m.city = String(patch.city).slice(0, 60)
+    if (patch.timezone !== undefined && validTz(patch.timezone)) m.timezone = patch.timezone
+    if (patch.workStart !== undefined) m.workStart = clampHour(patch.workStart, m.workStart)
+    if (patch.workEnd !== undefined) m.workEnd = clampHour(patch.workEnd, m.workEnd)
+    return true
+  }
+
+  function saveCheckin(initials, { focus = '', city = '', blockers = '' } = {}) {
+    const m = collab.team[initials]
+    if (!m) return null
+    m.checkin = { focus: String(focus).trim().slice(0, 160), city: String(city).trim().slice(0, 60), blockers: String(blockers).trim().slice(0, 160), updatedAt: Date.now() }
+    if (m.checkin.city) m.city = m.checkin.city
+    logActivity('checkin', `fez o check-in${m.checkin.city ? ' em ' + m.checkin.city : ''}${m.checkin.focus ? `: “${m.checkin.focus}”` : ''}`, null, initials)
+    return m.checkin
+  }
+
+  function addDecision({ title, context = '', author = CURRENT_USER, taskId = null }) {
+    const entry = normalizeDecision({ title, context, author, taskId: taskId || null, createdAt: Date.now() })
+    if (!entry) return null
+    collab.decisions.unshift(entry)
+    logActivity('decision', `registrou a decisão “${entry.title}”`, entry.taskId, entry.author)
+    return entry
+  }
+  function removeDecision(id) {
+    const i = collab.decisions.findIndex(d => d.id === id)
+    if (i >= 0) collab.decisions.splice(i, 1)
+  }
+
+  function exportWorkspace() {
+    return {
+      app: 'escritorio-cityou',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      exportedBy: CURRENT_USER,
+      tasks: JSON.parse(JSON.stringify(tasks.value)),
+      collab: JSON.parse(JSON.stringify(collab)),
+      insignias: { ...memberInsignias }
+    }
+  }
+  function importWorkspace(input) {
+    const data = typeof input === 'string' ? JSON.parse(input) : input
+    if (!data || typeof data !== 'object' || !Array.isArray(data.tasks)) throw new Error('Arquivo sem a lista de tarefas')
+    const nextTasks = data.tasks.map(normalizeTask).filter(Boolean)
+    if (!nextTasks.length && data.tasks.length) throw new Error('Nenhuma tarefa válida no arquivo')
+    tasks.value = nextTasks
+    if (data.collab) {
+      const c = normalizeCollab(data.collab)
+      Object.assign(collab.team, c.team)
+      collab.decisions.splice(0, collab.decisions.length, ...c.decisions)
+      collab.activities.splice(0, collab.activities.length, ...c.activities)
+    }
+    if (data.insignias && typeof data.insignias === 'object') {
+      for (const [k, v] of Object.entries(data.insignias)) if (PARTNER_INITIALS.includes(k)) setInsignia(k, v)
+    }
+    clearSelection()
+    lastDeleted.value = null
+    logActivity('sync', `importou um quadro com ${nextTasks.length} tarefa${nextTasks.length === 1 ? '' : 's'}`)
+    return nextTasks.length
+  }
+
   return {
+    collab, activeTab, boardSubView, batonWithMeCount,
+    passBaton, updateMemberSettings, saveCheckin, addDecision, removeDecision,
+    exportWorkspace, importWorkspace,
     tasks, partners, columns,
     savedView, selectedMember, searchQuery, sortMode, selectedIds,
     forgedPercentage, onlineCount, hasActiveFilters,
@@ -264,4 +509,4 @@ export function useBoard() {
   }
 }
 
-export { partners }
+export { partners, collab, initialsName, PARTNER_INITIALS }

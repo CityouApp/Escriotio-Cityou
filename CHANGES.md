@@ -1,3 +1,25 @@
+# Escritório Cityou — v5 (abas conectadas + trabalho à distância)
+
+## Novidades
+- **Abas conectadas**: Quadro, Equipe & locais e Atividade & decisões agora funcionam, com indicador animado que desliza entre elas (GSAP). Filtros, busca, ordenação e seleção continuam iguais ao trocar de aba. Atalhos: `1`, `2`, `3`.
+- **Quadro ↔ Lista**: alternador com pílula deslizante (tecla `V`). A troca usa GSAP Flip, então cada cartão vira a sua linha. A visão escolhida fica salva.
+- **Fusos e janela em comum** (aba Equipe): relógio de cada sócio calculado com `Intl` no aparelho (sem internet), régua de 24 h no seu horário com o expediente de cada um e a faixa em que os três estão disponíveis. Cidade, fuso e expediente de cada sócio são editáveis; o padrão é Brasília (America/Sao_Paulo) para todos.
+- **Passagem de bastão**: botão ⚡ em cada cartão para passar a tarefa a outro sócio com recado. O selo "Bastão com…" aparece no cartão e na lista, há a visão salva "Bastão comigo" e a lista de bastões por sócio. Ao concluir a tarefa o bastão é recolhido.
+- **Check-in do dia**: foco, cidade e bloqueios de cada sócio, com hora do último check-in.
+- **Registro de decisões** com autor, data e tarefa ligada, e **feed de atividade** (criação, movimento, conclusão, bastão, check-in, decisão, importação) com filtro e clique que abre a tarefa.
+- **Paleta de comandos** (`Ctrl+K` / `⌘K`, ou o atalho no campo de busca): ir para abas, filtros, sócio, nova tarefa, check-in, decisão, exportar/importar e busca de tarefas por título.
+- **Exportar / importar** (botão "Sincronizar"): baixa um `.json` com tarefas, bastões, check-ins, decisões e insígnias, ou importa por arquivo ou texto colado. Serve para os três sincronizarem sem servidor.
+
+## Dados
+- Tarefas continuam em `nos_estudio_kanban_v3` (agora com o campo opcional `handoff`); dados antigos são lidos sem perda.
+- Colaboração em `cityou_collab_v1`, visão em `cityou_view_v1`. Insígnias continuam em `cityou_insignias_v1`.
+
+## Fora desta rodada
+- Sincronização automática entre aparelhos, presença em tempo real e avisos de bastão precisam de servidor (Cloudflare Durable Objects/KV) e ficaram para depois.
+- A proposta do Gemini de trocar as insígnias por outros brasões não foi aplicada: as 9 insígnias do time continuam as mesmas.
+
+---
+
 # Escritório Cityou — v4 (insígnias + links vivos + acabamento premium)
 
 ## Novidades

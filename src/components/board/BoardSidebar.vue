@@ -5,26 +5,30 @@
       <span class="studio-name">Escritório Cityou</span>
     </div>
 
-    <nav class="nav-list" aria-label="Seções">
-      <button class="nav-item active" aria-current="page">
+    <nav ref="navEl" class="nav-list" aria-label="Seções" role="tablist" aria-orientation="vertical">
+      <span ref="indicatorEl" class="nav-indicator" aria-hidden="true"></span>
+      <button
+        v-for="t in tabs"
+        :key="t.id"
+        :ref="el => (tabEls[t.id] = el)"
+        type="button"
+        role="tab"
+        class="nav-item"
+        :class="{ active: activeTab === t.id }"
+        :aria-selected="activeTab === t.id"
+        :aria-controls="'tab-panel-' + t.id"
+        :title="`${t.label} (tecla ${t.key})`"
+        @click="$emit('update:active-tab', t.id)"
+      >
         <span class="nav-label">
-          <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-          Quadro
+          <svg v-if="t.id === 'board'" viewBox="0 0 24 24" class="nav-icon" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+          <svg v-else-if="t.id === 'team'" viewBox="0 0 24 24" class="nav-icon" aria-hidden="true"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M16 8.5a2.8 2.8 0 1 0-.01 0M17.5 14c2 .5 3.2 2 3.6 4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <svg v-else viewBox="0 0 24 24" class="nav-icon" aria-hidden="true"><path d="M3 17l5-6 4 3 6-8 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="nav-long">{{ t.label }}</span><span class="nav-short" style="display:none">{{ t.short }}</span>
         </span>
-        <span class="nav-badge">{{ totalCount }}</span>
-      </button>
-      <button class="nav-item" disabled title="Disponível em breve">
-        <span class="nav-label">
-          <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M16 8.5a2.8 2.8 0 1 0-.01 0M17.5 14c2 .5 3.2 2 3.6 4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          Equipe &amp; locais
-        </span>
-        <span class="nav-badge green">{{ onlineCount }}</span>
-      </button>
-      <button class="nav-item" disabled title="Disponível em breve">
-        <span class="nav-label">
-          <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true"><path d="M3 17l5-6 4 3 6-8 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Atividade
-        </span>
+        <span v-if="t.id === 'board'" class="nav-badge">{{ totalCount }}</span>
+        <span v-else-if="t.id === 'team'" class="nav-badge green">{{ onlineCount }}</span>
+        <span v-else-if="decisionsCount" class="nav-badge gold">{{ decisionsCount }}</span>
       </button>
     </nav>
 
@@ -40,7 +44,11 @@
           <svg class="sv-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="7" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 17c.8-3.2 3.2-5 6-5s5.2 1.8 6 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Minhas tarefas
         </button>
         <button class="saved-view-btn" :class="{ active: savedView === 'urgent' }" :aria-pressed="savedView === 'urgent'" @click="$emit('update:saved-view', 'urgent')">
-          <svg class="sv-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M11 2L4 11.5h5L8 18l7-9.5h-5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg> Urgentes
+          <svg class="sv-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 17.5V3M4.5 3.5h9.5l-2 3.5 2 3.5H4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg> Urgentes
+        </button>
+        <button class="saved-view-btn" :class="{ active: savedView === 'baton' }" :aria-pressed="savedView === 'baton'" @click="$emit('update:saved-view', 'baton')">
+          <svg class="sv-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M11 2L4 11.5h5L8 18l7-9.5h-5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg> Bastão comigo
+          <span v-if="batonCount" class="sv-count">{{ batonCount }}</span>
         </button>
       </div>
 
@@ -124,12 +132,18 @@
       </div>
     </div>
 
-    <button class="sidebar-reset" @click="$emit('reset')">Restaurar exemplo</button>
+    <div class="sidebar-footer-actions">
+      <button type="button" class="sidebar-reset sync" title="Exportar ou importar o quadro em JSON" @click="$emit('open-sync')">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6h9l-2.5-2.5M13 10H4l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Sincronizar
+      </button>
+      <button type="button" class="sidebar-reset" title="Restaurar os dados de exemplo" @click="$emit('reset')">Restaurar</button>
+    </div>
   </aside>
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import gsap from 'gsap'
 import { reducedMotion } from '../../utils/motion'
 import InsigniaGlyph from '../insignia/InsigniaGlyph.vue'
@@ -143,9 +157,41 @@ const props = defineProps({
   totalCount: { type: Number, default: 0 },
   onlineCount: { type: Number, default: 1 },
   savedView: { type: String, default: 'all' },
-  forgedPercentage: { type: Number, default: 0 }
+  forgedPercentage: { type: Number, default: 0 },
+  activeTab: { type: String, default: 'board' },
+  batonCount: { type: Number, default: 0 },
+  decisionsCount: { type: Number, default: 0 }
 })
-defineEmits(['update:saved-view', 'reset'])
+defineEmits(['update:saved-view', 'update:active-tab', 'open-cmd', 'open-sync', 'reset'])
+
+const tabs = [
+  { id: 'board', label: 'Quadro', short: 'Quadro', key: '1' },
+  { id: 'team', label: 'Equipe & locais', short: 'Equipe', key: '2' },
+  { id: 'activity', label: 'Atividade & decisões', short: 'Atividade', key: '3' }
+]
+const navEl = ref(null)
+const indicatorEl = ref(null)
+const tabEls = {}
+let firstPlace = true
+function placeIndicator() {
+  const el = tabEls[props.activeTab]
+  const ind = indicatorEl.value
+  if (!el || !ind) return
+  const box = { x: el.offsetLeft, y: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight }
+  if (firstPlace || reducedMotion()) { gsap.set(ind, { ...box, autoAlpha: 1 }); firstPlace = false; return }
+  gsap.to(ind, { ...box, autoAlpha: 1, duration: 0.55, ease: 'expo.out', overwrite: true })
+}
+watch(() => props.activeTab, () => nextTick(placeIndicator))
+let ro = null
+onMounted(() => {
+  nextTick(placeIndicator)
+  document.fonts?.ready?.then(() => placeIndicator())
+  if (typeof ResizeObserver !== 'undefined' && navEl.value) {
+    ro = new ResizeObserver(() => { firstPlace = true; placeIndicator() })
+    ro.observe(navEl.value)
+  }
+})
+onBeforeUnmount(() => { ro?.disconnect() })
 
 const circumference = 2 * Math.PI * 48
 const dashOffset = computed(() => circumference - (props.forgedPercentage / 100) * circumference)
