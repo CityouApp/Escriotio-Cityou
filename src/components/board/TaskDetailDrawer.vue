@@ -42,7 +42,7 @@
               <div class="drawer-assignees">
                 <span v-for="ini in task.assignees" :key="ini" class="drawer-assignee">
                   <MemberAvatar :initials="ini" size="sm" :interactive="false" />
-                  {{ partnerByInitials[ini]?.name || ini }}
+                  {{ partnerByInitials[ini] ? partnerByInitials[ini].name.charAt(0) + partnerByInitials[ini].name.slice(1).toLowerCase() : ini }}
                 </span>
                 <span v-if="!task.assignees.length" class="drawer-value">Ninguém atribuído</span>
               </div>

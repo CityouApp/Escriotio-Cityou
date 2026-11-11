@@ -55,7 +55,7 @@
         <header class="member-head">
           <MemberAvatar :initials="p.initials" size="md" :task-id="null" />
           <div class="member-id">
-            <h3>{{ short(p) }} <span v-if="p.isYou" class="you-tag">(você)</span></h3>
+            <h3>{{ short(p) }} <span class="full-name">{{ fullNameOf(p.initials) }}</span> <span v-if="p.isYou" class="you-tag">(você)</span></h3>
             <span class="member-local">{{ formatTimeInZone(team[p.initials].timezone, now) }} · {{ team[p.initials].city || cityFromTz(team[p.initials].timezone) }}</span>
           </div>
           <span class="member-state" :class="stateOf(p.initials).cls">{{ stateOf(p.initials).label }}</span>
@@ -146,7 +146,7 @@
 <script setup>
 import { computed, reactive, nextTick, onBeforeUnmount } from 'vue'
 import MemberAvatar from '../insignia/MemberAvatar.vue'
-import { useBoard, TIMEZONE_OPTIONS, formatTimeInZone, tzOffsetHours, isWorking, overlapUtcHours, CURRENT_USER } from '../../composables/useBoard'
+import { useBoard, initialsName, fullNameOf, TIMEZONE_OPTIONS, formatTimeInZone, tzOffsetHours, isWorking, overlapUtcHours, CURRENT_USER } from '../../composables/useBoard'
 import { memberColor } from '../../composables/useInsignias'
 import { useNow, relativeTime, isToday } from '../../composables/useNow'
 import { showToast } from '../../composables/useToast'
@@ -158,7 +158,7 @@ const { now, release } = useNow()
 onBeforeUnmount(release)
 const team = collab.team
 
-const short = (p) => ({ LF: 'Luiz Felipe', LC: 'Luiz Carlos', AX: 'Xande' }[p.initials] || p.name)
+const short = (p) => initialsName(p.initials)
 const viewerTz = computed(() => team[CURRENT_USER]?.timezone || 'America/Sao_Paulo')
 const viewerOffset = computed(() => tzOffsetHours(viewerTz.value, now.value))
 
@@ -231,7 +231,7 @@ function submitCheckin(ini) {
   }
   saveCheckin(ini, d)
   editing[ini] = false
-  showToast(`Check-in de ${({ LF: 'Luiz Felipe', LC: 'Luiz Carlos', AX: 'Xande' })[ini]} salvo`, { tone: 'success' })
+  showToast(`Check-in de ${initialsName(ini)} salvo`, { tone: 'success' })
 }
 
 function batonsOf(ini) { return tasks.value.filter(t => t.status !== 'done' && t.handoff?.holder === ini) }

@@ -68,7 +68,7 @@
       >
         <MemberAvatar :initials="p.initials" size="sm" :interactive="false" :show-initials="false" />
         <span class="team-text">
-          <span class="team-name">{{ tc(p.name).split(' ')[0] === 'Alexandre' ? 'Xande' : tc(p.name) }}</span>
+          <span class="team-name">{{ tc(p.name) }}</span>
           <span class="team-ins">{{ insigniaOf(p.initials).name }}</span>
         </span>
         <svg class="team-edit" viewBox="0 0 20 20" aria-hidden="true"><path d="M13.6 3.6l2.8 2.8L7 15.8l-3.6.8.8-3.6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>

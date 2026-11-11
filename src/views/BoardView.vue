@@ -19,7 +19,7 @@
       <header class="board-header">
         <div class="header-left">
           <div class="header-date">{{ headerDate }}</div>
-          <h1 class="header-greeting">{{ greeting }}, Luiz Felipe</h1>
+          <h1 class="header-greeting">{{ greeting }}, Fifo</h1>
           <div class="header-online-status">
             <span class="dot-online" aria-hidden="true"></span>
             {{ onlineCount }} de {{ partners.length }} sócios online

@@ -31,6 +31,7 @@
       </span>
       <span class="medallion-info">
         <span class="medallion-name">{{ displayName }} <span v-if="partner.isYou" class="you-tag">(você)</span></span>
+        <span v-if="partner.fullName" class="medallion-fullname">{{ partner.fullName }}</span>
         <span class="medallion-status" :class="{ online: partner.online }">{{ partner.statusText }}</span>
       </span>
     </button>

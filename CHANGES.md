@@ -1,3 +1,11 @@
+# Escritório Cityou — v5.1 (apelidos e locais do time)
+
+- Apelidos na interface: **Fifo** (Luiz Felipe), **Luixx** (Luiz Carlos) e **Xandy** (Alexandre), com o nome completo como texto secundário. Iniciais e ids (LF, LC, AX) não mudaram, então tarefas, insígnias e filtros salvos continuam ligados.
+- Locais padrão: Fifo no Rio de Janeiro (America/Sao_Paulo), Luixx em Brasília (America/Sao_Paulo) e Xandy no Texas, EUA (America/Chicago), todos 9:00–18:00 no horário local. Hoje (Chicago em CST, UTC−6) a janela em comum é de 6 h, das 12:00 às 18:00 em Brasília; com o horário de verão de Chicago (CDT, UTC−5) passa a 7 h, das 11:00 às 18:00. O cálculo usa `Intl` na data atual.
+- Migração: os dados de equipe da v5 (cidade vazia e fuso de Brasília para todos) recebem os novos padrões. Os valores que o usuário já editou ficam como estão.
+
+---
+
 # Escritório Cityou — v5 (abas conectadas + trabalho à distância)
 
 ## Novidades

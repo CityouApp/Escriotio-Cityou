@@ -419,3 +419,5 @@ button.feed-row:hover { background: rgba(56, 182, 255, .06); }
   .header-left { min-width: 0; width: 100%; }
   .sort-box { flex: 0 0 auto; }
 }
+.member-id .full-name { color: var(--ink-dim); font-weight: 500; font-size: 12px; }
+.medallion-fullname { display: block; color: var(--ink-dim); font: 500 11px var(--font-body); opacity: .8; }

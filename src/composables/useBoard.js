@@ -125,9 +125,9 @@ const selectedIds = ref([])
 const lastDeleted = ref(null)
 
 const partners = ref([
-  { id: 'luiz-felipe', name: 'LUIZ FELIPE', initials: 'LF', isYou: true, online: true, emblem: 'bolt', statusText: 'NO COMBATE (Online)' },
-  { id: 'luiz-carlos', name: 'LUIZ CARLOS', initials: 'LC', isYou: false, online: false, emblem: 'shield', statusText: 'Offline — há 1 h' },
-  { id: 'alexandre', name: "ALEXANDRE 'XANDE'", initials: 'AX', isYou: false, online: false, emblem: 'star', statusText: 'Offline — há 1 h' }
+  { id: 'luiz-felipe', name: 'FIFO', fullName: 'Luiz Felipe', initials: 'LF', isYou: true, online: true, emblem: 'bolt', statusText: 'NO COMBATE (Online)' },
+  { id: 'luiz-carlos', name: 'LUIXX', fullName: 'Luiz Carlos', initials: 'LC', isYou: false, online: false, emblem: 'shield', statusText: 'Offline — há 1 h' },
+  { id: 'alexandre', name: 'XANDY', fullName: 'Alexandre', initials: 'AX', isYou: false, online: false, emblem: 'star', statusText: 'Offline — há 1 h' }
 ])
 
 // ============ COLABORAÇÃO À DISTÂNCIA (offline, localStorage) ============
@@ -158,8 +158,18 @@ function validTz(tz) {
   if (typeof tz !== 'string' || !tz) return false
   try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true } catch { return false }
 }
+// Padrões de cada sócio (v2). Ids/iniciais não mudam, só os rótulos e locais.
+export const NICKNAMES = { LF: 'Fifo', LC: 'Luixx', AX: 'Xandy' }
+export const FULL_NAMES = { LF: 'Luiz Felipe', LC: 'Luiz Carlos', AX: 'Alexandre' }
+const TEAM_DEFAULTS_VERSION = 2
+const TEAM_DEFAULTS = {
+  LF: { city: 'Rio de Janeiro', timezone: 'America/Sao_Paulo' },
+  LC: { city: 'Brasília', timezone: 'America/Sao_Paulo' },
+  AX: { city: 'Texas, EUA', timezone: 'America/Chicago' }
+}
 function defaultCollab(initials) {
-  return { city: '', timezone: DEFAULT_TZ, workStart: 9, workEnd: 18, checkin: null }
+  const d = TEAM_DEFAULTS[initials] || { city: '', timezone: DEFAULT_TZ }
+  return { city: d.city, timezone: d.timezone, workStart: 9, workEnd: 18, checkin: null }
 }
 function clampHour(n, d) { n = Number(n); return Number.isFinite(n) ? Math.min(24, Math.max(0, Math.round(n))) : d }
 function normalizeCollabPartner(raw, initials) {
@@ -201,16 +211,34 @@ function normalizeActivity(a) {
 function normalizeCollab(raw) {
   const src = raw && typeof raw === 'object' ? raw : {}
   const team = {}
-  for (const ini of PARTNER_INITIALS) team[ini] = normalizeCollabPartner(src.team?.[ini], ini)
+  const oldDefaults = !(src.defaultsVersion >= TEAM_DEFAULTS_VERSION)
+  for (const ini of PARTNER_INITIALS) {
+    const m = normalizeCollabPartner(src.team?.[ini], ini)
+    // Migração v1 -> v2: a v1 tinha cidade vazia e fuso de Brasília para todos.
+    // Só troca o que continua no padrão antigo; o que o usuário editou fica.
+    if (oldDefaults && src.team?.[ini]) {
+      const d = TEAM_DEFAULTS[ini]
+      const cityUntouched = !m.city
+      if (cityUntouched) m.city = d.city
+      if (cityUntouched && m.timezone === DEFAULT_TZ) m.timezone = d.timezone
+    }
+    team[ini] = m
+  }
   return {
+    defaultsVersion: TEAM_DEFAULTS_VERSION,
     team,
     decisions: Array.isArray(src.decisions) ? src.decisions.map(normalizeDecision).filter(Boolean).slice(0, 200) : [],
     activities: Array.isArray(src.activities) ? src.activities.map(normalizeActivity).filter(Boolean).slice(0, 150) : []
   }
 }
 function loadCollab() {
-  try { return normalizeCollab(JSON.parse(localStorage.getItem(COLLAB_KEY) || 'null')) }
-  catch { return normalizeCollab(null) }
+  try {
+    const raw = JSON.parse(localStorage.getItem(COLLAB_KEY) || 'null')
+    const out = normalizeCollab(raw)
+    // grava já a migração de padrões, sem esperar a próxima edição
+    if (raw && !(raw.defaultsVersion >= TEAM_DEFAULTS_VERSION)) localStorage.setItem(COLLAB_KEY, JSON.stringify(out))
+    return out
+  } catch { return normalizeCollab(null) }
 }
 
 const collab = reactive(loadCollab())
@@ -228,7 +256,7 @@ watch(collab, (val) => {
 watch(boardSubView, (v) => { try { localStorage.setItem(VIEW_KEY, v) } catch { /* modo privado */ } })
 
 function initialsName(ini) {
-  return { LF: 'Luiz Felipe', LC: 'Luiz Carlos', AX: 'Xande' }[ini] || ini
+  return NICKNAMES[ini] || ini
 }
 function logActivity(type, text, taskId = null, actor = CURRENT_USER) {
   collab.activities.unshift({ id: uid(), type, actor, text: String(text).slice(0, 220), taskId, createdAt: Date.now() })
@@ -484,6 +512,7 @@ export function useBoard() {
     if (data.collab) {
       const c = normalizeCollab(data.collab)
       Object.assign(collab.team, c.team)
+      collab.defaultsVersion = c.defaultsVersion
       collab.decisions.splice(0, collab.decisions.length, ...c.decisions)
       collab.activities.splice(0, collab.activities.length, ...c.activities)
     }
@@ -509,4 +538,5 @@ export function useBoard() {
   }
 }
 
+export function fullNameOf(ini) { return FULL_NAMES[ini] || '' }
 export { partners, collab, initialsName, PARTNER_INITIALS }
